@@ -24,16 +24,29 @@ jobs:
         run: flutter create --platforms android --project-name teacher_bus_driver --org com.teacherbus build_app
 
       - name: Copy our files in
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
           cp pubspec.yaml build_app/pubspec.yaml
           cp main.dart build_app/lib/main.dart
-          python3 patch_manifest.py build_app/android/app/src/main/AndroidManifest.xml
+          mkdir -p build_app/assets
+          cp icon.png build_app/assets/icon.png
+          cp icon_fg.png build_app/assets/icon_fg.png
+          echo "$KEYSTORE_BASE64" | base64 -d > build_app/android/app/release.jks
+          python3 patch_manifest.py build_app/android/app/src/main/AndroidManifest.xml "سائق الباص"
+          python3 patch_gradle.py build_app/android/app
 
       - name: Build APK
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/build_app/android/app/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: busapp
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
           cd build_app
           flutter pub get
-          flutter build apk --release
+          dart run flutter_launcher_icons
+          flutter build apk --release --build-number=${{ github.run_number }}
 
       - uses: actions/upload-artifact@v4
         with:
